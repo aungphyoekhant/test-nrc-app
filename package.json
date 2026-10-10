@@ -1,0 +1,20 @@
+{
+  "name": "test-nrc-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@blockchainhub/countries-divisions": "^1.0.1",
+    "@tm11/mmgeo": "^1.1.0",
+    "country-state-city": "^3.2.1",
+    "mm-states": "^1.0.1",
+    "myanmar-nrc-validator": "^1.0.17"
+  }
+}

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Myanmar NRC Composer Form</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+
+    <!-- Load Library via CDN -->
+    <script type="module">
+      import {
+        getStates,
+        getStateTownships,
+        getCitizenTypes,
+      } from "https://cdn.jsdelivr.net/npm/myanmar-nrc-validator@latest/dist/index.js";
+
+      window.nrcHelper = {
+        getStates,
+        getStateTownships,
+        getCitizenTypes,
+      };
+
+      document.addEventListener("DOMContentLoaded", () => {
+        loadStates();
+        loadCitizenTypes();
+      });
+
+      function loadStates() {
+        const states = window.nrcHelper.getStates();
+        const stateSelect = document.getElementById("stateSelect");
+        stateSelect.innerHTML =
+          '<option value="">ပြည်နယ်/တိုင်း ရွေးပါ</option>';
+
+        if (Array.isArray(states)) {
+          states.forEach((state) => {
+            const opt = document.createElement("option");
+            opt.value = state.code;
+            const mmText = state.mm || state.nameMm || state.name || "";
+            const enText = state.en || state.nameEn || "";
+            opt.textContent = `${state.code} - ${mmText} (${enText})`;
+            stateSelect.appendChild(opt);
+          });
+        }
+      }
+
+      function loadCitizenTypes() {
+        const types = window.nrcHelper.getCitizenTypes();
+        const typeSelect = document.getElementById("typeSelect");
+        typeSelect.innerHTML =
+          '<option value="">နိုင်ငံသားအမျိုးအစား ရွေးပါ</option>';
+
+        if (Array.isArray(types)) {
+          types.forEach((ct) => {
+            const opt = document.createElement("option");
+            opt.value = ct.code;
+            const mmText = ct.mm || ct.nameMm || ct.name || "";
+            const enText = ct.en || ct.nameEn || "";
+            opt.textContent = `${ct.code} - ${mmText} (${enText})`;
+            typeSelect.appendChild(opt);
+          });
+        }
+      }
+
+      window.onStateChange = function () {
+        const stateCode = document.getElementById("stateSelect").value;
+        const townshipSelect = document.getElementById("townshipSelect");
+        townshipSelect.innerHTML = '<option value="">မြို့နယ် ရွေးပါ</option>';
+
+        if (!stateCode) return;
+
+        const townshipsData = window.nrcHelper.getStateTownships(stateCode);
+
+        // သင်ပေးထားသော JSON structure (`data.townships` သို့မဟုတ် Array သက်သက်) ကို ကိုင်တွယ်ခြင်း
+        let townships = [];
+        if (Array.isArray(townshipsData)) {
+          townships = townshipsData;
+        } else if (townshipsData?.data?.townships) {
+          townships = townshipsData.data.townships;
+        } else if (townshipsData?.townships) {
+          townships = townshipsData.townships;
+        }
+
+        townships.forEach((t) => {
+          const opt = document.createElement("option");
+
+          const enCode = t.en || ""; // ဥပမာ - "UKAMA"
+          const mmCode = t.mm || ""; // ဥပမာ - "ဥကမ"
+          const fullMm = t.fullMm || ""; // ဥပမာ - "မြောက်ဥက္ကလာပ"
+          const fullEn = t.fullEn || ""; // ဥပမာ - "OuKaMa"
+
+          // Option တန်ဖိုးတွင် en နှင့် mm short codes များကို သိမ်းဆည်းမည်
+          opt.value = JSON.stringify({ en: enCode, mm: mmCode });
+          opt.textContent = `${enCode} / ${mmCode} - ${fullMm} (${fullEn})`;
+          townshipSelect.appendChild(opt);
+        });
+      };
+
+      window.generateNrc = function () {
+        const stateCode = document.getElementById("stateSelect").value;
+        const townshipVal = document.getElementById("townshipSelect").value;
+        const type = document.getElementById("typeSelect").value;
+        const number = document.getElementById("numberInput").value;
+        const format = document.getElementById("formatSelect").value;
+        const resultDisplay = document.getElementById("resultDisplay");
+
+        if (!stateCode || !townshipVal || !type || !number) {
+          alert("ကျေးဇူးပြု၍ အချက်အလက်များ အားလုံး အပြည့်အစုံ ဖြည့်စွက်ပါ!");
+          return;
+        }
+
+        try {
+          const townshipObj = JSON.parse(townshipVal);
+          let composed = "";
+
+          if (format === "mm") {
+            const mmNumbers = {
+              0: "၀",
+              1: "၁",
+              2: "၂",
+              3: "၃",
+              4: "၄",
+              5: "၅",
+              6: "၆",
+              7: "၇",
+              8: "၈",
+              9: "၉",
+            };
+            const convertToMm = (str) =>
+              String(str)
+                .split("")
+                .map((char) => mmNumbers[char] || char)
+                .join("");
+
+            const mmState = convertToMm(stateCode);
+            const mmNum = convertToMm(number);
+            const citizenMm =
+              type === "N"
+                ? "နိုင်"
+                : type === "E"
+                  ? "ဧည့်"
+                  : type === "P"
+                    ? "ပြု"
+                    : type;
+
+            // မြန်မာဖော်မတ်: ၁၂/ဥကမ(နိုင်)၁၂၃၄၅၆
+            composed = `${mmState}/${townshipObj.mm}(${citizenMm})${mmNum}`;
+          } else {
+            // အင်္ဂလိပ်ဖော်မတ်: 12/UKAMA(N)123456
+            composed = `${stateCode}/${townshipObj.en}(${type})${number}`;
+          }
+
+          resultDisplay.textContent = composed;
+          resultDisplay.className = "text-success fw-bold fs-4";
+        } catch (error) {
+          console.error(error);
+          resultDisplay.textContent = "Error: " + error.message;
+          resultDisplay.className = "text-danger fw-bold fs-6";
+        }
+      };
+    </script>
+  </head>
+  <body class="bg-light">
+    <div class="container mt-5" style="max-width: 600px">
+      <div class="card shadow p-4">
+        <h3 class="mb-4 text-center text-primary">Myanmar NRC Composer</h3>
+
+        <!-- State/Region Selection -->
+        <div class="mb-3">
+          <label class="form-label fw-bold"
+            >ပြည်နယ်/တိုင်း (State / Region)</label
+          >
+          <select
+            id="stateSelect"
+            class="form-select"
+            onchange="onStateChange()"
+          >
+            <option value="">ပထမဦးစွာ ပြည်နယ်ရွေးချယ်ပါ</option>
+          </select>
+        </div>
+
+        <!-- Township Selection -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">မြို့နယ် (Township)</label>
+          <select id="townshipSelect" class="form-select">
+            <option value="">ပြည်နယ်အရင်ရွေးချယ်ပါ</option>
+          </select>
+        </div>
+
+        <!-- Citizen Type Selection -->
+        <div class="mb-3">
+          <label class="form-label fw-bold"
+            >နိုင်ငံသားအမျိုးအစား (Citizen Type)</label
+          >
+          <select id="typeSelect" class="form-select">
+            <option value="">ရွေးချယ်ပါ</option>
+          </select>
+        </div>
+
+        <!-- Number Input -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">ဂဏန်း (Number - 6 Digits)</label>
+          <input
+            type="text"
+            id="numberInput"
+            class="form-control"
+            placeholder="ဥပမာ - ၁၂၃၄၅၆ (သို့) 123456"
+            maxlength="6"
+          />
+        </div>
+
+        <!-- Format Language Selection -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">ထွက်လာမည့် ဖော်မတ် (Format)</label>
+          <select id="formatSelect" class="form-select">
+            <option value="en">English (အင်္ဂလိပ်)</option>
+            <option value="mm">Myanmar (မြန်မာ)</option>
+          </select>
+        </div>
+
+        <!-- Action Button -->
+        <button
+          onclick="generateNrc()"
+          class="btn btn-primary w-100 py-2 fw-bold"
+        >
+          NRC ဖန်တီးမည် (Compose NRC)
+        </button>
+
+        <!-- Result Section -->
+        <div class="mt-4 p-3 bg-white border rounded text-center shadow-sm">
+          <p class="text-muted mb-1">ဖန်တီးရရှိလာသော NRC:</p>
+          <div id="resultDisplay" class="text-secondary fw-bold fs-5">-</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
